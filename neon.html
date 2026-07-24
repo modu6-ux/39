@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Neon Slash VR - Cyberpunk Rhythm Action</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #030308;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #fff;
+        }
+        #webgl-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 25px;
+            box-sizing: border-box;
+        }
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .score-box {
+            background: rgba(10, 15, 30, 0.65);
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2), inset 0 0 15px rgba(0, 240, 255, 0.1);
+            backdrop-filter: blur(8px);
+            padding: 15px 25px;
+            border-radius: 12px;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
+        }
+        .score-title {
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: #88ccff;
+            text-transform: uppercase;
+        }
+        .score-value {
+            font-size: 38px;
+            font-weight: 900;
+            color: #00f0ff;
+            font-family: monospace;
+        }
+        .combo-box {
+            text-align: right;
+            background: rgba(20, 10, 30, 0.65);
+            border: 1px solid rgba(255, 0, 128, 0.4);
+            box-shadow: 0 0 15px rgba(255, 0, 128, 0.2), inset 0 0 15px rgba(255, 0, 128, 0.1);
+            backdrop-filter: blur(8px);
+            padding: 15px 25px;
+            border-radius: 12px;
+            text-shadow: 0 0 10px rgba(255, 0, 128, 0.8);
+        }
+        .combo-value {
+            font-size: 38px;
+            font-weight: 900;
+            color: #ff0080;
+            font-family: monospace;
+        }
+        .multiplier {
+            font-size: 14px;
+            color: #ff80df;
+            font-weight: bold;
+        }
+        /* Health / Energy Bar */
+        .hud-center-bottom {
+            align-self: center;
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .energy-bar-bg {
+            width: 100%;
+            height: 12px;
+            background: rgba(20, 25, 40, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            padding: 2px;
+        }
+        .energy-bar-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff0055, #ffaa00, #00f0ff);
+            border-radius: 4px;
+            transition: width 0.15s ease-out;
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
+        }
+        .instructions-hint {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* Start / Pause Modal */
+        #modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            background: rgba(5, 5, 12, 0.85);
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            transition: opacity 0.4s ease;
+        }
+        .modal-card {
+            background: rgba(15, 20, 35, 0.9);
+            border: 1px solid rgba(0, 240, 255, 0.5);
+            box-shadow: 0 0 40px rgba(0, 240, 255, 0.3), inset 0 0 30px rgba(0, 240, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px 50px;
+            max-width: 580px;
+            width: 90%;
+            text-align: center;
+            color: #fff;
+        }
+        .modal-title {
+            font-size: 42px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #00f0ff, #ff0080);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            filter: drop-shadow(0 0 15px rgba(0, 240, 255, 0.5));
+        }
+        .modal-subtitle {
+            font-size: 14px;
+            color: #a0c0e0;
+            letter-spacing: 2px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+        }
+        .controls-guide {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+            text-align: left;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #ccc;
+        }
+        .key-badge {
+            background: linear-gradient(180deg, #334, #112);
+            border: 1px solid rgba(0, 240, 255, 0.6);
+            color: #00f0ff;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-family: monospace;
+            box-shadow: 0 0 8px rgba(0,240,255,0.3);
+            min-width: 32px;
+            text-align: center;
+        }
+        .btn-start {
+            background: linear-gradient(135deg, #00f0ff, #ff0080);
+            border: none;
+            color: #fff;
+            font-size: 20px;
+            font-weight: 800;
+            padding: 16px 45px;
+            border-radius: 50px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.6);
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        .btn-start:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 35px rgba(255, 0, 128, 0.8);
+        }
+        .btn-start:active {
+            transform: scale(0.98);
+        }
+
+        /* Hit text splash */
+        .hit-splash {
+            position: absolute;
+            font-weight: 900;
+            font-style: italic;
+            pointer-events: none;
+            animation: splashAnim 0.6s ease-out forwards;
+            font-family: 'Impact', sans-serif;
+            text-shadow: 0 0 15px currentColor;
+        }
+        @keyframes splashAnim {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5) rotate(-5deg); }
+            50% { transform: translate(-50%, -80%) scale(1.3) rotate(3deg); }
+            100% { opacity: 0; transform: translate(-50%, -120%) scale(1) rotate(5deg); }
+        }
+
+        /* Touch Control Overlay for Mobile */
+        #touch-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 30px;
+            pointer-events: auto;
+            z-index: 12;
+        }
+        .touch-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(0, 240, 255, 0.2);
+            border: 2px solid #00f0ff;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+            touch-action: manipulation;
+        }
+        .touch-btn.right {
+            background: rgba(255, 0, 128, 0.2);
+            border-color: #ff0080;
+            box-shadow: 0 0 20px rgba(255, 0, 128, 0.4);
+        }
+        .touch-btn:active {
+            transform: scale(0.9);
+            filter: brightness(1.5);
+        }
+        
+        @media (min-width: 900px) {
+            #touch-controls { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="webgl-container"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <div class="hud-top">
+            <div class="score-box">
+                <div class="score-title">SCORE</div>
+                <div id="score-display" class="score-value">000000</div>
+            </div>
+            <div class="combo-box">
+                <div class="score-title">COMBO</div>
+                <div id="combo-display" class="combo-value">0</div>
+                <div id="multiplier-display" class="multiplier">1x MULTIPLIER</div>
+            </div>
+        </div>
+
+        <div class="hud-center-bottom">
+            <div class="energy-bar-bg">
+                <div id="energy-fill" class="energy-bar-fill"></div>
+            </div>
+            <div class="instructions-hint">마우스/터치 시선 이동 | [A / 좌클릭] 민트 검(왼쪽) | [D / 우클릭] 마젠타 검(오른쪽)</div>
+        </div>
+    </div>
+
+    <!-- Start / Pause Modal -->
+    <div id="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-title">NEON SLASH VR</div>
+            <div class="modal-subtitle">CYBERPUNK PLASMA SABER RHYTHM</div>
+            
+            <div class="controls-guide">
+                <div class="control-item">
+                    <span class="key-badge">LEFT</span> 또는 <span class="key-badge">A</span>
+                    <span>왼쪽 민트 공 베기</span>
+                </div>
+                <div class="control-item">
+                    <span class="key-badge">RIGHT</span> 또는 <span class="key-badge">D</span>
+                    <span>오른쪽 마젠타 공 베기</span>
+                </div>
+                <div class="control-item">
+                    <span class="key-badge">좌클릭</span>
+                    <span>왼쪽 민트 검 휘두르기</span>
+                </div>
+                <div class="control-item">
+                    <span class="key-badge">우클릭</span>
+                    <span>오른쪽 마젠타 검 휘두르기</span>
+                </div>
+            </div>
+
+            <button id="start-btn" class="btn-start">게임 시작</button>
+        </div>
+    </div>
+
+    <!-- Mobile Touch Controls -->
+    <div id="touch-controls">
+        <div id="touch-left" class="touch-btn">민트</div>
+        <div id="touch-right" class="touch-btn right">마젠타</div>
+    </div>
+
+    <script>
+        // --- 게임 엔진 및 THREE.JS 설정 ---
+        let scene, camera, renderer;
+        let leftSaber, rightSaber;
+        let leftSaberLight, rightSaberLight;
+        
+        // 게임 상태 관리
+        let isGameActive = false;
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let multiplier = 1;
+        let energy = 100;
+        let gameTime = 0;
+        let targets = [];
+        let particles = [];
+        let laserBeams = [];
+        let beatFrequency = 0.5; // 비트 생성 주기(초)
+        let lastSpawnTime = 0;
+
+        // 오디오 시스템
+        let audioCtx = null;
+        let isAudioInit = false;
+        let bgSynthInterval = null;
+
+        // VR 시선 및 마우스 회전
+        let mouseX = 0, mouseY = 0;
+        let targetCamRotationX = 0, targetCamRotationY = 0;
+
+        // 색상 상수 (민트 / 마젠타)
+        const COLOR_LEFT = 0x00f0ff;   // 민트/사이언 (왼쪽)
+        const COLOR_RIGHT = 0xff0080;  // 마젠타 (오른쪽)
+
+        // --- 초기화 ---
+        window.onload = function() {
+            initThree();
+            initEnvironment();
+            initSabers();
+            initListeners();
+            animate();
+        };
+
+        function initThree() {
+            const container = document.getElementById('webgl-container');
+            
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x03030b, 0.025);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
+            camera.position.set(0, 1.6, 0); // VR 시점 높이
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.25;
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+        }
+
+        // --- 사이버펑크 배경 및 조명 ---
+        function initEnvironment() {
+            const ambientLight = new THREE.AmbientLight(0x101525, 0.8);
+            scene.add(ambientLight);
+
+            // 바닥 그리드
+            const gridHelper = new THREE.GridHelper(100, 50, 0x00f0ff, 0x151835);
+            gridHelper.position.y = 0;
+            scene.add(gridHelper);
+
+            // 플레이어 발판
+            const platformGeo = new THREE.CylinderGeometry(2.5, 2.8, 0.2, 32);
+            const platformMat = new THREE.MeshStandardMaterial({
+                color: 0x0a0f20,
+                roughness: 0.2,
+                metalness: 0.8,
+                emissive: 0x002244,
+                emissiveIntensity: 0.5
+            });
+            const platform = new THREE.Mesh(platformGeo, platformMat);
+            platform.position.set(0, -0.1, 0);
+            scene.add(platform);
+
+            // 발판 외곽 네온 링
+            const ringGeo = new THREE.RingGeometry(2.4, 2.5, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = 0.01;
+            scene.add(ring);
+
+            // 아치 기둥
+            for (let i = -40; i <= 10; i += 8) {
+                createArch(-6, i, COLOR_LEFT);
+                createArch(6, i, COLOR_RIGHT);
+            }
+
+            // 레이저 빔
+            for (let i = 0; i < 12; i++) {
+                const laserGeo = new THREE.CylinderGeometry(0.02, 0.02, 80, 8);
+                const laserMat = new THREE.MeshBasicMaterial({
+                    color: i % 2 === 0 ? COLOR_LEFT : COLOR_RIGHT,
+                    transparent: true,
+                    opacity: 0.6
+                });
+                const laser = new THREE.Mesh(laserGeo, laserMat);
+                laser.position.set(
+                    (Math.random() - 0.5) * 30,
+                    Math.random() * 15 + 2,
+                    -Math.random() * 40 - 10
+                );
+                laser.rotation.z = Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+                scene.add(laser);
+                laserBeams.push(laser);
+            }
+
+            // 배경 먼지 파티클
+            const particleGeo = new THREE.BufferGeometry();
+            const count = 600;
+            const positions = new Float32Array(count * 3);
+            for(let i=0; i<count*3; i+=3) {
+                positions[i] = (Math.random() - 0.5) * 80;
+                positions[i+1] = Math.random() * 30;
+                positions[i+2] = -Math.random() * 60;
+            }
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const particleMat = new THREE.PointsMaterial({
+                color: 0x00f0ff,
+                size: 0.15,
+                transparent: true,
+                opacity: 0.7
+            });
+            const dust = new THREE.Points(particleGeo, particleMat);
+            scene.add(dust);
+        }
+
+        function createArch(x, z, color) {
+            const pillarGeo = new THREE.BoxGeometry(0.3, 12, 0.3);
+            const pillarMat = new THREE.MeshStandardMaterial({
+                color: 0x080815,
+                emissive: color,
+                emissiveIntensity: 0.6,
+                roughness: 0.3
+            });
+            const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+            pillar.position.set(x, 6, z);
+            scene.add(pillar);
+        }
+
+        // --- 광선검 (무기 생성) ---
+        function initSabers() {
+            leftSaber = createPlasmaSaber(COLOR_LEFT);
+            rightSaber = createPlasmaSaber(COLOR_RIGHT);
+
+            leftSaber.position.set(-0.45, 1.2, -0.6);
+            rightSaber.position.set(0.45, 1.2, -0.6);
+
+            leftSaber.rotation.x = -Math.PI / 6;
+            rightSaber.rotation.x = -Math.PI / 6;
+
+            scene.add(leftSaber);
+            scene.add(rightSaber);
+
+            leftSaberLight = new THREE.PointLight(COLOR_LEFT, 2, 4);
+            leftSaber.add(leftSaberLight);
+
+            rightSaberLight = new THREE.PointLight(COLOR_RIGHT, 2, 4);
+            rightSaber.add(rightSaberLight);
+        }
+
+        function createPlasmaSaber(colorHex) {
+            const group = new THREE.Group();
+
+            // 손잡이
+            const hiltGeo = new THREE.CylinderGeometry(0.025, 0.03, 0.22, 16);
+            const hiltMat = new THREE.MeshStandardMaterial({
+                color: 0x222228,
+                metalness: 0.9,
+                roughness: 0.2
+            });
+            const hilt = new THREE.Mesh(hiltGeo, hiltMat);
+            hilt.position.y = -0.11;
+            group.add(hilt);
+
+            // 방패대
+            const guardGeo = new THREE.CylinderGeometry(0.04, 0.03, 0.04, 16);
+            const guardMat = new THREE.MeshStandardMaterial({ color: 0x444450, metalness: 0.95 });
+            const guard = new THREE.Mesh(guardGeo, guardMat);
+            guard.position.y = 0.01;
+            group.add(guard);
+
+            // 플라즈마 코어
+            const coreGeo = new THREE.CylinderGeometry(0.012, 0.012, 1.1, 16);
+            const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            core.position.y = 0.58;
+            group.add(core);
+
+            // 플라즈마 칼날 오라
+            const auraGeo = new THREE.CylinderGeometry(0.028, 0.028, 1.12, 16);
+            const auraMat = new THREE.MeshBasicMaterial({
+                color: colorHex,
+                transparent: true,
+                opacity: 0.85
+            });
+            const aura = new THREE.Mesh(auraGeo, auraMat);
+            aura.position.y = 0.58;
+            group.add(aura);
+
+            // 끝부분 빛
+            const tipGeo = new THREE.SphereGeometry(0.028, 16, 16);
+            const tip = new THREE.Mesh(tipGeo, auraMat);
+            tip.position.y = 1.14;
+            group.add(tip);
+
+            return group;
+        }
+
+        // --- 오디오 사운드 효과 ---
+        function initAudio() {
+            if (isAudioInit) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            isAudioInit = true;
+
+            startSynthMusic();
+        }
+
+        function startSynthMusic() {
+            if (!audioCtx) return;
+
+            let step = 0;
+            const tempo = 130;
+            const stepTime = (60 / tempo) / 4;
+
+            const bassNotes = [110, 110, 220, 110, 146.83, 110, 164.81, 130.81];
+
+            bgSynthInterval = setInterval(() => {
+                if (!isGameActive) return;
+
+                const time = audioCtx.currentTime;
+
+                if (step % 4 === 0) playKick(time);
+                if (step % 2 === 0) playBassSynth(time, bassNotes[(step / 2) % bassNotes.length]);
+                if (step % 2 === 1) playHiHat(time);
+
+                step = (step + 1) % 16;
+            }, stepTime * 1000);
+        }
+
+        function playKick(time) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(150, time);
+            osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.15);
+            gain.gain.setValueAtTime(1, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(time);
+            osc.stop(time + 0.15);
+        }
+
+        function playBassSynth(time, freq) {
+            const osc = audioCtx.createOscillator();
+            const filter = audioCtx.createBiquadFilter();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, time);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(400, time);
+            filter.frequency.exponentialRampToValueAtTime(1200, time + 0.1);
+
+            gain.gain.setValueAtTime(0.3, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(time);
+            osc.stop(time + 0.2);
+        }
+
+        function playHiHat(time) {
+            const bufferSize = audioCtx.sampleRate * 0.05;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.value = 7000;
+
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.15, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.04);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            noise.start(time);
+        }
+
+        function playSliceSound(isLeft) {
+            if (!audioCtx) return;
+            const time = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            const baseFreq = isLeft ? 587.33 : 880;
+            osc.frequency.setValueAtTime(baseFreq, time);
+            osc.frequency.exponentialRampToValueAtTime(baseFreq * 2, time + 0.12);
+
+            gain.gain.setValueAtTime(0.4, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(time);
+            osc.stop(time + 0.12);
+        }
+
+        function playMissSound() {
+            if (!audioCtx) return;
+            const time = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(120, time);
+            osc.frequency.linearRampToValueAtTime(60, time + 0.2);
+
+            gain.gain.setValueAtTime(0.3, time);
+            gain.gain.linearRampToValueAtTime(0.01, time + 0.2);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(time);
+            osc.stop(time + 0.2);
+        }
+
+        // --- 공 생성 (스폰 로직 변경: 민트색=왼쪽, 마젠타색=오른쪽) ---
+        function spawnRhythmBeat() {
+            const isLeft = Math.random() > 0.5; // true = 민트(왼쪽), false = 마젠타(오른쪽)
+            const colorHex = isLeft ? COLOR_LEFT : COLOR_RIGHT;
+
+            const group = new THREE.Group();
+
+            // 구체 생성
+            const geo = new THREE.SphereGeometry(0.28, 24, 24);
+            const mat = new THREE.MeshStandardMaterial({
+                color: colorHex,
+                emissive: colorHex,
+                emissiveIntensity: 0.9,
+                roughness: 0.1,
+                metalness: 0.5
+            });
+            const sphere = new THREE.Mesh(geo, mat);
+            group.add(sphere);
+
+            // 외곽 홀로그램 링
+            const ringGeo = new THREE.TorusGeometry(0.38, 0.02, 16, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            group.add(ring);
+
+            // 화살표 방향
+            const arrowGeo = new THREE.ConeGeometry(0.12, 0.25, 4);
+            const arrowMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+            arrow.rotation.x = Math.PI / 2;
+            group.add(arrow);
+
+            // ★ 핵심 수정: 민트색(isLeft=true)은 왼쪽에만(-1.5 ~ -0.25), 마젠타색(isLeft=false)은 오른쪽에만(0.25 ~ 1.5)
+            const laneX = isLeft 
+                ? (-0.25 - Math.random() * 1.25)  // 왼쪽 영역
+                : (0.25 + Math.random() * 1.25);   // 오른쪽 영역
+
+            const laneY = 1.0 + Math.random() * 1.1;
+            group.position.set(laneX, laneY, -35);
+
+            group.userData = {
+                isLeft: isLeft, // true: 민트, false: 마젠타
+                speed: 18 + Math.min(score / 500, 12),
+                rotationSpeed: (Math.random() - 0.5) * 0.1,
+                slashed: false
+            };
+
+            scene.add(group);
+            targets.push(group);
+        }
+
+        // --- 파티클 이펙트 ---
+        function createExplosionSparks(pos, colorHex) {
+            const count = 35;
+            for (let i = 0; i < count; i++) {
+                const geo = new THREE.BoxGeometry(0.04, 0.04, 0.04);
+                const mat = new THREE.MeshBasicMaterial({ color: colorHex });
+                const p = new THREE.Mesh(geo, mat);
+
+                p.position.copy(pos);
+
+                const velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 8,
+                    (Math.random() - 0.5) * 8,
+                    (Math.random() - 0.5) * 8
+                );
+
+                p.userData = {
+                    velocity: velocity,
+                    life: 1.0
+                };
+
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
+        // --- 베기 동작 및 판정 ---
+        function triggerSlash(isLeftSaber) {
+            if (!isGameActive) return;
+
+            const saber = isLeftSaber ? leftSaber : rightSaber;
+            
+            // 검 휘두르기 애니메이션
+            const targetRotZ = isLeftSaber ? -Math.PI / 2 : Math.PI / 2;
+            
+            let frame = 0;
+            const swingAnim = () => {
+                frame++;
+                if (frame <= 5) {
+                    saber.rotation.z += targetRotZ / 5;
+                    saber.rotation.x += 0.2;
+                    saber.position.z -= 0.08;
+                } else if (frame <= 12) {
+                    saber.rotation.z -= targetRotZ / 7;
+                    saber.rotation.x -= 0.14;
+                    saber.position.z += 0.057;
+                } else {
+                    saber.rotation.set(-Math.PI / 6, 0, 0);
+                    saber.position.set(isLeftSaber ? -0.45 : 0.45, 1.2, -0.6);
+                    return;
+                }
+                requestAnimationFrame(swingAnim);
+            };
+            swingAnim();
+
+            // 타격 존 판정
+            const saberTipPos = new THREE.Vector3();
+            saber.getWorldPosition(saberTipPos);
+
+            for (let i = targets.length - 1; i >= 0; i--) {
+                const target = targets[i];
+                if (target.userData.slashed) continue;
+
+                const dist = target.position.distanceTo(saberTipPos);
+                const inHitZoneZ = target.position.z > -2.5 && target.position.z < 1.0;
+
+                // 충돌 감지
+                if (inHitZoneZ && (dist < 2.0 || Math.abs(target.position.x - saberTipPos.x) < 1.4)) {
+                    // ★ 핵심 수정: 베어낸 검의 색상(isLeftSaber)과 공의 색상(target.userData.isLeft)이 일치할 때만 콤보 인정!
+                    const isCorrectMatch = (target.userData.isLeft === isLeftSaber);
+                    registerHit(target, isCorrectMatch);
+                    break;
+                }
+            }
+        }
+
+        function registerHit(target, correctSaber) {
+            target.userData.slashed = true;
+
+            const targetPos = target.position.clone();
+            const colorHex = target.userData.isLeft ? COLOR_LEFT : COLOR_RIGHT;
+
+            createExplosionSparks(targetPos, correctSaber ? colorHex : 0xff0000);
+
+            if (correctSaber) {
+                // 일치하는 색상으로 베었을 때: 콤보 증가 & 점수 멀티플라이어 상승
+                playSliceSound(target.userData.isLeft);
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+
+                multiplier = Math.min(Math.floor(combo / 10) + 1, 8);
+                const points = 100 * multiplier;
+                score += points;
+
+                energy = Math.min(100, energy + 4);
+
+                showHitSplash(targetPos, `PERFECT! +${points}`, target.userData.isLeft ? "#00f0ff" : "#ff0080");
+            } else {
+                // 다른 색상 검으로 베었을 때: 콤보 리셋
+                playMissSound();
+                combo = 0;
+                multiplier = 1;
+                energy = Math.max(0, energy - 8);
+                showHitSplash(targetPos, "WRONG COLOR!", "#ff0055");
+            }
+
+            updateHUD();
+
+            scene.remove(target);
+            const index = targets.indexOf(target);
+            if (index > -1) targets.splice(index, 1);
+        }
+
+        function registerMiss(target) {
+            playMissSound();
+            combo = 0;
+            multiplier = 1;
+            energy = Math.max(0, energy - 12);
+            updateHUD();
+
+            showHitSplash(target.position, "MISS", "#ff0055");
+
+            scene.remove(target);
+            const index = targets.indexOf(target);
+            if (index > -1) targets.splice(index, 1);
+
+            if (energy <= 0) {
+                gameOver();
+            }
+        }
+
+        // 플로팅 텍스트 팝업
+        function showHitSplash(pos3D, text, color) {
+            const vector = pos3D.clone();
+            vector.project(camera);
+
+            const x = (vector.x * .5 + .5) * window.innerWidth;
+            const y = (-(vector.y * .5) + .5) * window.innerHeight;
+
+            const div = document.createElement('div');
+            div.className = 'hit-splash';
+            div.style.left = `${x}px`;
+            div.style.top = `${y}px`;
+            div.style.color = color;
+            div.innerText = text;
+
+            document.body.appendChild(div);
+
+            setTimeout(() => div.remove(), 600);
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').innerText = String(score).padStart(6, '0');
+            document.getElementById('combo-display').innerText = combo;
+            document.getElementById('multiplier-display').innerText = `${multiplier}x MULTIPLIER`;
+            document.getElementById('energy-fill').style.width = `${energy}%`;
+        }
+
+        // --- 게임 상태 관리 ---
+        function startGame() {
+            initAudio();
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            score = 0;
+            combo = 0;
+            multiplier = 1;
+            energy = 100;
+            gameTime = 0;
+
+            targets.forEach(t => scene.remove(t));
+            particles.forEach(p => scene.remove(p));
+            targets = [];
+            particles = [];
+
+            updateHUD();
+
+            isGameActive = true;
+            document.getElementById('modal-overlay').style.opacity = '0';
+            document.getElementById('modal-overlay').style.pointerEvents = 'none';
+        }
+
+        function gameOver() {
+            isGameActive = false;
+            
+            const modal = document.getElementById('modal-overlay');
+            const title = modal.querySelector('.modal-title');
+            const subtitle = modal.querySelector('.modal-subtitle');
+            const btn = document.getElementById('start-btn');
+
+            title.innerText = "SYSTEM OVERLOAD";
+            subtitle.innerText = `최종 점수: ${score} | 최대 콤보: ${maxCombo}`;
+            btn.innerText = "다시 시작";
+
+            modal.style.pointerEvents = 'auto';
+            modal.style.opacity = '1';
+        }
+
+        // --- 이벤트 리스너 ---
+        function initListeners() {
+            window.addEventListener('resize', onWindowResize);
+
+            // VR 시점 마우스 트래킹
+            window.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+                mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                targetCamRotationY = -mouseX * 0.3;
+                targetCamRotationX = mouseY * 0.2;
+            });
+
+            // 키보드 입력을 통한 베기
+            window.addEventListener('keydown', (e) => {
+                if (!isGameActive) return;
+                if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
+                    triggerSlash(true); // 왼쪽 민트 검
+                }
+                if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
+                    triggerSlash(false); // 오른쪽 마젠타 검
+                }
+            });
+
+            // 마우스 클릭 입력
+            window.addEventListener('mousedown', (e) => {
+                if (!isGameActive) return;
+                if (e.button === 0) triggerSlash(true);  // 좌클릭 -> 민트 검(왼쪽)
+                if (e.button === 2) triggerSlash(false); // 우클릭 -> 마젠타 검(오른쪽)
+            });
+
+            window.addEventListener('contextmenu', e => e.preventDefault());
+
+            // 모바일 터치 버튼
+            document.getElementById('touch-left').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                triggerSlash(true);
+            });
+            document.getElementById('touch-right').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                triggerSlash(false);
+            });
+
+            document.getElementById('start-btn').addEventListener('click', startGame);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 메인 루프 ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = 0.016;
+            gameTime += delta;
+
+            camera.rotation.y += (targetCamRotationY - camera.rotation.y) * 0.1;
+            camera.rotation.x += (targetCamRotationX - camera.rotation.x) * 0.1;
+
+            if (isGameActive) {
+                if (gameTime - lastSpawnTime > beatFrequency) {
+                    spawnRhythmBeat();
+                    lastSpawnTime = gameTime;
+                    beatFrequency = Math.max(0.28, 0.5 - (score / 20000));
+                }
+
+                // 타겟 이동 업데이트
+                for (let i = targets.length - 1; i >= 0; i--) {
+                    const target = targets[i];
+                    target.position.z += target.userData.speed * delta;
+                    target.rotation.z += target.userData.rotationSpeed;
+
+                    if (target.position.z > 2.0 && !target.userData.slashed) {
+                        registerMiss(target);
+                    }
+                }
+
+                // 파티클 업데이트
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.position.addScaledVector(p.userData.velocity, delta);
+                    p.userData.life -= delta * 2.5;
+                    p.scale.multiplyScalar(0.92);
+
+                    if (p.userData.life <= 0) {
+                        scene.remove(p);
+                        particles.splice(i, 1);
+                    }
+                }
+
+                // 레이저 펄스
+                laserBeams.forEach((laser, idx) => {
+                    laser.material.opacity = 0.3 + Math.sin(gameTime * 10 + idx) * 0.3;
+                });
+            }
+
+            if (leftSaber && rightSaber && !isGameActive) {
+                leftSaber.position.y = 1.2 + Math.sin(gameTime * 3) * 0.03;
+                rightSaber.position.y = 1.2 + Math.cos(gameTime * 3) * 0.03;
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
